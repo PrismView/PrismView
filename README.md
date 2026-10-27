@@ -1,72 +1,94 @@
 # PrismView
 
+<p align="center">
+  <img src="docs/images/prismview.png" alt="PrismView" width="360">
+</p>
+
 TradingView 유료 플랜 없이 BTC/ETH 차트 위에 나만의 매매 알고리즘 지표와 진입·청산 지점을 표시하고, 같은 로직으로 백테스트하는 개인용 차트 플랫폼입니다.
 
-> 현재 개발 중인 프로젝트입니다.
+이 저장소는 **기획·설계 문서 허브**입니다. 코드는 언어별로 나눈 저장소에서 구현합니다.
 
-## 주요 기능
+## 저장소 구성
 
-- **차트**: Lightweight Charts v5 기반 캔들 차트, 종목(BTC/ETH)·시간봉 전환, 과거 캔들 무한 스크롤, 실시간 갱신
-- **드로잉 툴**: 추세선, 레이, 수평선, 수직선, 사각형, 텍스트 메모 (자석 모드 지원, 시간·가격 좌표로 저장)
-- **지표**: SMA, EMA, 볼린저 밴드 오버레이와 RSI, MACD 서브 패널 (백엔드에서 직접 구현, Pine Script와 동일한 계산 방식)
-- **시그널**: 마감된 봉으로 계산한 가격 레벨에 도달하면 진입·청산 (리페인팅 없음), 다음 진입 레벨을 차트에 미리 표시
-- **백테스트**: 실시간과 같은 전략 코드를 쓰는 이벤트 루프 엔진, 지정가 체결 모델, 1분봉 기반 봉 내부 순서 판정, 수수료·펀딩비 반영
-- **결과 대시보드**: 총 PnL, 최대 손실폭, 승률, Profit Factor, 자산 곡선, 거래 목록(MFE/MAE 포함), 항목별 표시 토글
+언어가 Java(Gradle), Python, 프론트엔드로 달라 한 저장소에 모으면 빌드와 CI가 복잡해집니다. 수집기는 독립 저장소로 두면 Java 프로젝트로 바로 보여줄 수 있습니다.
+
+```
+PrismView (organization)
+ ├─ .github                 조직 소개
+ ├─ PrismView               기획·설계 문서 허브 (여기)
+ ├─ prismview-collector     Java · OKX 30초봉 수집기
+ ├─ prismview-backtester    Python · 백테스트 엔진 (예정)
+ └─ prismview-web           React · 차트 프론트엔드 (예정)
+```
+
+| 저장소 | 역할 | 상태 |
+| --- | --- | --- |
+| [PrismView](https://github.com/PrismView/PrismView) | 기획서, ADR, 아키텍처 | 진행 중 |
+| [prismview-collector](https://github.com/PrismView/prismview-collector) | 1초봉 수집 → 30초봉 집계, PostgreSQL · Parquet | 1단계 |
+| prismview-backtester | 실시간과 같은 전략 코드로 백테스트 | 예정 |
+| prismview-web | Lightweight Charts v5 차트, 지표, 드로잉, 대시보드 | 예정 |
+
+## 데이터 흐름
+
+```
+OKX REST (1s candles)
+        │
+        ▼
+┌──────────────────────────────────┐
+│  prismview-collector (Java)      │
+│  - 3개월 백필 · 증분 수집          │
+│  - 1초봉 → 30초봉 집계             │
+│  - 누락 검사                      │
+└──────────────────────────────────┘
+        │                     │
+        ▼                     ▼
+  PostgreSQL              Parquet
+  (운영 저장소)            (백테스터 입력)
+        │
+        ├──────────────────────┐
+        ▼                      ▼
+ prismview-backtester    prismview-web
+ (Python, 예정)          (React, 예정)
+```
+
+- 과거·실시간 가격은 모두 OKX에서 받습니다. 거래소가 다르면 백테스트와 실시간이 어긋납니다.
+- 원본은 1초봉을 누적 저장하고, 전략·차트용 30초봉은 1초봉을 집계해 같이 둡니다.
+- 백테스터는 Parquet 스냅샷을 읽어 "같은 입력 → 같은 결과"를 재현합니다.
 
 ## 대상 상품
 
-| 거래소 | 상품 | 시간봉 |
-| --- | --- | --- |
-| OKX | BTC-USDT-SWAP, ETH-USDT-SWAP | 1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W |
+| 거래소 | 상품 | 수집 원본 | 전략 시간봉 |
+| --- | --- | --- | --- |
+| OKX | BTC-USDT-SWAP, ETH-USDT-SWAP | 1s | 30s (1초봉 30개를 집계) |
 
-일봉·주봉은 UTC 기준으로 집계하고, 화면에는 KST로 표시합니다.
+화면 표시는 KST, 저장·집계 경계는 UTC입니다.
 
-## 기술 스택
+## 오늘까지 정한 설계
 
-| 구분 | 기술 |
+자세한 이유와 대안 비교는 [docs/adr](docs/adr)에 있습니다.
+
+| ADR | 결정 |
 | --- | --- |
-| 프론트엔드 | React (Vite), TypeScript |
-| 차트 | Lightweight Charts v5 |
-| 백엔드 | Python, FastAPI (REST + WebSocket) |
-| 지표 계산 | pandas + 직접 구현 |
-| 백테스트 | 자체 이벤트 루프 |
-| DB | PostgreSQL |
-| 인프라 | Docker Compose |
+| [0001](docs/adr/0001-postgresql.md) | 운영 저장소는 PostgreSQL |
+| [0002](docs/adr/0002-30s-candle.md) | 1초봉을 모아 30초봉을 만든다 |
+| [0003](docs/adr/0003-cumulative-storage.md) | 원본·집계 봉을 DB에 누적 저장한다 |
+| [0004](docs/adr/0004-parquet.md) | 백테스터 입력은 Parquet로 내보낸다 |
 
-## 아키텍처
+## 문서
 
-```
-OKX REST / WebSocket
-        │
-        ▼
-┌──────────────────────────────┐
-│  Backend (FastAPI)           │
-│  - 1분봉 수집·집계            │
-│  - 지표 계산                  │
-│  - 전략 엔진 (실시간 = 백테스트) │
-└──────────────────────────────┘
-        │  REST + WebSocket          ┌────────────┐
-        ├──────────────────────────▶ │ PostgreSQL │
-        ▼                            └────────────┘
-┌──────────────────────────────┐
-│  Frontend (React + LWC v5)   │
-│  - 차트 · 지표 · 마커 · 드로잉 │
-│  - 백테스트 대시보드           │
-└──────────────────────────────┘
-```
-
-- 과거·실시간 데이터를 모두 OKX에서 받아 백테스트와 실시간 시그널의 가격 차이를 없앱니다.
-- 원본은 1분봉만 저장하고, 다른 시간봉은 1분봉을 합쳐서 생성합니다.
-- 실시간 시그널과 백테스트가 같은 전략 엔진 코드를 사용하므로 두 결과가 어긋나지 않습니다.
+- [기획 개요](docs/planning/overview.md)
+- [의사결정 시트](docs/planning/decision-sheet.md)
+- [수집기 설계 결정 정리노트](docs/planning/PrismView_수집기_설계결정_정리노트.pdf) — 선택지 비교와 함정 모음
+- [ADR](docs/adr/README.md)
 
 ## 로드맵
 
-- [ ] 데이터: PostgreSQL 구성, OKX 1분봉 과거 데이터 적재, 시간봉 집계
-- [ ] 백엔드: 캔들 조회 API, 핵심 지표(SMA, EMA, RSI, BB, MACD) 구현
-- [ ] 프론트: 캔들 차트, 종목·시간봉 전환, 1차 드로잉 툴
-- [ ] 실시간: OKX 웹소켓 중계, 끊김 복구, 지표·마커 표시
-- [ ] 전략 엔진: 레벨 계산과 도달 판정
-- [ ] 백테스트: 체결 모델, 요약 지표, 거래 목록
+- [x] 조직·저장소 분리, 수집기 설계 결정
+- [ ] 수집기: PostgreSQL, 3개월 1초봉 백필, 30초봉 집계, 누락 검사
+- [ ] 수집기: Parquet 내보내기
+- [ ] 백테스터: 체결 모델, 요약 지표, 거래 목록
+- [ ] 웹: 캔들 차트, 종목·시간봉 전환, 1차 드로잉 툴
+- [ ] 실시간: OKX 웹소켓 중계, 끊김 복구
 - [ ] 검증: 기존 TradingView 전략과 거래 내역·총 PnL 비교
 - [ ] 연동: PrismQuant 시그널 형식 정의
 
