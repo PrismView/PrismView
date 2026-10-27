@@ -73,4 +73,3 @@ OKX REST / WebSocket
 ## 라이선스
 
 차트 렌더링에 [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts)를 사용하며, 출처 표기를 유지합니다.
-# PrismView
