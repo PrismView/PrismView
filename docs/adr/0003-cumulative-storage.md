@@ -1,6 +1,6 @@
 # ADR-0003 · 원본·집계 봉을 DB에 누적 저장
 
-- 상태: 채택
+- 상태: 일부 대체됨 (1초봉 보관 → [ADR-0005](0005-1s-candle-retention.md))
 - 날짜: 2026-10-27
 - 저장소: [prismview-collector](https://github.com/PrismView/prismview-collector)
 
