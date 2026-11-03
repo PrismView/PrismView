@@ -8,5 +8,6 @@
 | --- | --- | --- |
 | [0001](0001-postgresql.md) | 운영 저장소로 PostgreSQL 사용 | 채택 |
 | [0002](0002-30s-candle.md) | 1초봉을 모아 30초봉 생성 | 채택 |
-| [0003](0003-cumulative-storage.md) | 원본·집계 봉 누적 저장 | 채택 |
+| [0003](0003-cumulative-storage.md) | 원본·집계 봉 누적 저장 | 일부 대체됨 (1초봉 보관 → [0005](0005-1s-candle-retention.md)) |
 | [0004](0004-parquet.md) | 백테스터 입력으로 Parquet 내보내기 | 채택 |
+| [0005](0005-1s-candle-retention.md) | 1초봉 원본 보관 방식 — 최근 3개월은 DB, 이후는 월별 Parquet | 채택 |
